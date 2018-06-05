@@ -1,4 +1,5 @@
 const packageJson = require("./package.json");
+import log from "./logging";
 
 module.exports = {
   async request(verb, url, requestBody, callback) {
@@ -19,6 +20,8 @@ module.exports = {
       requestBody = JSON.stringify(requestBody);
     }
 
+    log.debug("Requesting " + getHttpMethodName(verb) + ": " + url + ", Body: " + requestBody);
+    
     try {
       const response = await fetch(url, {
         method: getHttpMethodName(verb),

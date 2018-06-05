@@ -9,6 +9,8 @@ import hoistStatics from 'hoist-non-react-statics';
 let NativeCodePush = require("react-native").NativeModules.CodePush;
 const PackageMixins = require("./package-mixins")(NativeCodePush);
 
+let configOverride;
+
 async function checkForUpdate(deploymentKey = null, handleBinaryVersionMismatchCallback = null) {
   /*
    * Before we ask the server if an update exists, we
@@ -71,6 +73,8 @@ async function checkForUpdate(deploymentKey = null, handleBinaryVersionMismatchC
    *    because we want to avoid having to install diff updates against the binary's
    *    version, which we can't do yet on Android.
    */
+  log.debug("Update: " + JSON.stringify(update));
+  log.debug("Local Package: " + JSON.stringify(localPackage));
   if (!update || update.updateAppVersion ||
       localPackage && (update.packageHash === localPackage.packageHash) ||
       (!localPackage || localPackage._isDebugOnly) && config.packageHash === update.packageHash) {
@@ -99,6 +103,7 @@ const getConfiguration = (() => {
       return testConfig;
     } else {
       config = await NativeCodePush.getConfiguration();
+      Object.assign(config, configOverride);
       return config;
     }
   }
@@ -125,8 +130,10 @@ function getPromisifiedSdk(requestFetchAdapter, config) {
     return new Promise((resolve, reject) => {
       module.exports.AcquisitionSdk.prototype.queryUpdateWithCurrentPackage.call(sdk, queryPackage, (err, update) => {
         if (err) {
+          log.debug("Error: " + err);
           reject(err);
         } else {
+          log("Success:" + update);
           resolve(update);
         }
       });
@@ -344,6 +351,7 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
 
     syncStatusChangeCallback(CodePush.SyncStatus.CHECKING_FOR_UPDATE);
     const remotePackage = await checkForUpdate(syncOptions.deploymentKey, handleBinaryVersionMismatchCallback);
+    log.debug("Remote package: " + JSON.stringify(remotePackage));
 
     const doDownloadAndInstall = async () => {
       syncStatusChangeCallback(CodePush.SyncStatus.DOWNLOADING_PACKAGE);
@@ -361,6 +369,7 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
     };
 
     const updateShouldBeIgnored = remotePackage && (remotePackage.failedInstall && syncOptions.ignoreFailedUpdates);
+    log.debug("Sync options: " + JSON.stringify(syncOptions));
     if (!remotePackage || updateShouldBeIgnored) {
       if (updateShouldBeIgnored) {
           log("An update is available, but it is being ignored due to having been previously rolled back.");
@@ -456,6 +465,8 @@ function codePushify(options = {}) {
 2. Call the codePush.sync API in your component instead of using the @codePush decorator`
     );
   }
+
+  configOverride = options.configOverride;
 
   var decorator = (RootComponent) => {
     const extended = class CodePushComponent extends React.Component {
