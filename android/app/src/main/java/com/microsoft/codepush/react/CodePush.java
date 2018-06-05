@@ -202,6 +202,11 @@ public class CodePush implements ReactPackage {
         }
 
         JSONObject packageMetadata = this.mUpdateManager.getCurrentPackage();
+        String packageAppVersion = packageMetadata.optString("appVersion", null);
+        // Axsy test MAJOR.MINOR.PATCH for binary version compatibility
+        packageAppVersion = majorMinorPatch(packageAppVersion);
+        String binaryAppVersion = majorMinorPatch(sAppVersion);
+
         if (isPackageBundleLatest(packageMetadata)) {
             CodePushUtils.logBundleUrl(packageFilePath);
             sIsRunningBinaryVersion = false;
@@ -209,7 +214,7 @@ public class CodePush implements ReactPackage {
         } else {
             // The binary version is newer.
             this.mDidUpdate = false;
-            if (!this.mIsDebugMode || hasBinaryVersionChanged(packageMetadata)) {
+            if (!this.mIsDebugMode || !binaryAppVersion.equals(packageAppVersion)) {
                 this.clearUpdates();
             }
 
@@ -281,10 +286,11 @@ public class CodePush implements ReactPackage {
                 binaryModifiedDateDuringPackageInstall = Long.parseLong(binaryModifiedDateDuringPackageInstallString);
             }
             String packageAppVersion = packageMetadata.optString("appVersion", null);
+            // Axsy test MAJOR.MINOR.PATCH for binary version compatibility
+            packageAppVersion = majorMinorPatch(packageAppVersion);
+            String binaryAppVersion = majorMinorPatch(sAppVersion);
             long binaryResourcesModifiedTime = this.getBinaryResourcesModifiedTime();
-            return binaryModifiedDateDuringPackageInstall != null &&
-                    binaryModifiedDateDuringPackageInstall == binaryResourcesModifiedTime &&
-                    (isUsingTestConfiguration() || sAppVersion.equals(packageAppVersion));
+            return (isUsingTestConfiguration() || binaryAppVersion.equals(packageAppVersion));
         } catch (NumberFormatException e) {
             throw new CodePushUnknownException("Error in reading binary modified date from package metadata", e);
         }
@@ -342,6 +348,17 @@ public class CodePush implements ReactPackage {
             return null;
         }
         return mReactInstanceHolder.getReactInstanceManager();
+    }
+
+    // Strip any suffices from a semantic version number
+    static String majorMinorPatch(String version) {
+        int suffix = version.indexOf("-");
+        if (suffix < 0)
+            suffix = version.indexOf("+");
+        
+        if (suffix >= 0)
+            return version.substring(0,suffix);
+        else return version;
     }
 
     @Override

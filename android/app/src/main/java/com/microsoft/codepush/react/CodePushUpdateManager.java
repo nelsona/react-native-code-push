@@ -1,5 +1,6 @@
 package com.microsoft.codepush.react;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedInputStream;
@@ -163,6 +164,25 @@ public class CodePushUpdateManager {
         try {
             URL downloadUrl = new URL(downloadUrlString);
             connection = (HttpURLConnection) (downloadUrl.openConnection());
+
+            // >>>> Axsy patched for redirects
+            int statusCode = connection.getResponseCode();
+            boolean isRedirect = (
+                    statusCode != HttpURLConnection.HTTP_OK &&
+                            (
+                                    statusCode == HttpURLConnection.HTTP_MOVED_PERM ||
+                                            statusCode == HttpURLConnection.HTTP_MOVED_TEMP
+                            )
+            );
+            if (isRedirect) {
+                String redirectURL = connection.getHeaderField("Location");
+                connection.disconnect();
+                connection = (HttpURLConnection) new URL(redirectURL).openConnection();
+                connection.setConnectTimeout(5000);
+                android.util.Log.v("CodePush", "<<<< Axsy redirected to " +redirectURL);
+            }
+            // <<<< Axsy patched
+
             connection.setRequestProperty("Accept-Encoding", "identity");
             bin = new BufferedInputStream(connection.getInputStream());
 
@@ -195,7 +215,7 @@ public class CodePushUpdateManager {
                 progressCallback.call(new DownloadProgress(totalBytes, receivedBytes));
             }
 
-            if (totalBytes != receivedBytes) {
+            if (totalBytes != receivedBytes && totalBytes != -1) { // Axsy patched to allow unknown content length
                 throw new CodePushUnknownException("Received " + receivedBytes + " bytes, expected " + totalBytes);
             }
 

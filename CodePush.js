@@ -103,7 +103,10 @@ const getConfiguration = (() => {
       return testConfig;
     } else {
       config = await NativeCodePush.getConfiguration();
-      Object.assign(config, configOverride);
+      config.log = log;
+      if (typeof configOverride === 'object') {
+        Object.assign(config, configOverride);
+      }
       return config;
     }
   }
@@ -130,7 +133,7 @@ function getPromisifiedSdk(requestFetchAdapter, config) {
     return new Promise((resolve, reject) => {
       module.exports.AcquisitionSdk.prototype.queryUpdateWithCurrentPackage.call(sdk, queryPackage, (err, update) => {
         if (err) {
-          log.debug("Error: " + err);
+          log.debug("Success:" + JSON.stringify(update));
           reject(err);
         } else {
           log("Success:" + update);
@@ -439,7 +442,7 @@ async function syncInternal(options = {}, syncStatusChangeCallback, downloadProg
     }
   } catch (error) {
     syncStatusChangeCallback(CodePush.SyncStatus.UNKNOWN_ERROR);
-    log(error.message);
+    log("Exception: " + JSON.stringify(error));
     throw error;
   }
 };
@@ -467,6 +470,7 @@ function codePushify(options = {}) {
   }
 
   configOverride = options.configOverride;
+  log.enableDebug(options['enableDebug']);
 
   var decorator = (RootComponent) => {
     const extended = class CodePushComponent extends React.Component {

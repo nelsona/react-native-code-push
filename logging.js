@@ -5,6 +5,8 @@ function log(message) {
 
 var debug_enabled = true;
 
+log.enableDebug = function(value) {}
+
 log.debug = function(msg) {
   if (debug_enabled)
     log(msg);

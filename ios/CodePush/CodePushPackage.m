@@ -50,6 +50,8 @@ static NSString *const UnzippedFolderName = @"unzipped";
     NSString *newUpdateHash = updatePackage[@"packageHash"];
     NSString *newUpdateFolderPath = [self getPackageFolderPath:newUpdateHash];
     NSString *newUpdateMetadataPath = [newUpdateFolderPath stringByAppendingPathComponent:UpdateMetadataFileName];
+    CPLog(@"<<<<metadata path %@", newUpdateMetadataPath);
+
     NSError *error;
     
     if ([[NSFileManager defaultManager] fileExistsAtPath:newUpdateFolderPath]) {
@@ -331,6 +333,7 @@ static NSString *const UnzippedFolderName = @"unzipped";
                                                     if (error) {
                                                         failCallback(error);
                                                     } else {
+                                                        CPLog(@"<<<<Wrote metadata %@", packageJsonString);
                                                         doneCallback();
                                                     }
                                                 }

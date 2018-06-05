@@ -58,5 +58,8 @@
     "commands": {
       "postlink": "node node_modules/react-native-code-push/scripts/postlink/run"
     }
+  },
+  "publishConfig": {
+    "registry": "https://nexus.axsy.com/repository/npm-axsy-release/"
   }
 }

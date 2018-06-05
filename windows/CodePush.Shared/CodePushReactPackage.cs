@@ -149,11 +149,13 @@ namespace CodePush.ReactNative
             }
 
             var packageAppVersion = (string)packageMetadata["appVersion"];
+            packageAppVersion = majorMinorPatch(packageAppVersion);
+            var binaryAppVersion = majorMinorPatch(AppVersion);
 
-            if (binaryModifiedDateDuringPackageInstall != null &&
-                    binaryModifiedDateDuringPackageInstall == binaryResourcesModifiedTime &&
-                    AppVersion.Equals(packageAppVersion))
+
+            if (binaryAppVersion.Equals(packageAppVersion))
             {
+                Debug.WriteLine("<<<< Newer OTA package");
                 CodePushUtils.LogBundleUrl(packageFile.Path);
                 IsRunningBinaryVersion = false;
 
@@ -161,10 +163,12 @@ namespace CodePush.ReactNative
             }
             else
             {
+                Debug.WriteLine("<<<< Newer Binary");
                 // The binary version is newer.
                 DidUpdate = false;
-                if (!UseDeveloperSupport || !AppVersion.Equals(packageAppVersion))
+                if (!UseDeveloperSupport || !binaryAppVersion.Equals(packageAppVersion))
                 {
+                    Debug.WriteLine("<<<< Clear OTA updates");
                     await ClearUpdatesAsync().ConfigureAwait(false);
                 }
 
@@ -228,6 +232,17 @@ namespace CodePush.ReactNative
             SettingsManager.SaveFailedUpdate(failedPackage);
             await UpdateManager.RollbackPackageAsync().ConfigureAwait(false);
             SettingsManager.RemovePendingUpdate();
+        }
+
+        private string majorMinorPatch(string version)
+        {
+            char[] suffices = { '-', '+' };
+
+            int suffix = version.IndexOfAny(suffices);
+
+            if (suffix >= 0)
+                return version.Substring(0, suffix);
+            else return version;
         }
 
 #endregion

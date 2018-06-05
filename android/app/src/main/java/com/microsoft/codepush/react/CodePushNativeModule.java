@@ -34,6 +34,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.facebook.react.bridge.Arguments.toBundle;
+
 public class CodePushNativeModule extends ReactContextBaseJavaModule {
     private String mBinaryContentsHash = null;
     private String mClientUniqueId = null;
@@ -205,8 +207,19 @@ public class CodePushNativeModule extends ReactContextBaseJavaModule {
             @Override
             protected Void doInBackground(Void... params) {
                 try {
-                    JSONObject mutableUpdatePackage = CodePushUtils.convertReadableToJsonObject(updatePackage);
+                    // Horrible around the house patch to hash
+                    WritableMap patchedPackage = Arguments.fromBundle(Arguments.toBundle(updatePackage));
+                    String patchedHash = updatePackage.getString(CodePushConstants.PACKAGE_HASH_KEY);
+                    patchedPackage.putString(CodePushConstants.PACKAGE_HASH_KEY, (patchedHash == null) ? "MISSINGHASH" : patchedHash.replace(" ", ""));
+                    JSONObject mutableUpdatePackage = CodePushUtils.convertReadableToJsonObject(patchedPackage);// updatePackage);
                     CodePushUtils.setJSONValueForKey(mutableUpdatePackage, CodePushConstants.BINARY_MODIFIED_TIME_KEY, "" + mCodePush.getBinaryResourcesModifiedTime());
+                    android.util.Log.v("CodePush", "<<<< Patched HASH is " + mutableUpdatePackage.optString(CodePushConstants.PACKAGE_HASH_KEY, "NOTSET!!!"));
+                    // End patch
+
+                    CodePushUtils.setJSONValueForKey(mutableUpdatePackage, CodePushConstants.BINARY_MODIFIED_TIME_KEY, "" + mCodePush.getBinaryResourcesModifiedTime());
+
+                    android.util.Log.v("CodePush", "<<<< Patched HASH is " + mutableUpdatePackage.optString(CodePushConstants.PACKAGE_HASH_KEY, "NOTSET!!!"));
+
                     mUpdateManager.downloadPackage(mutableUpdatePackage, mCodePush.getAssetsBundleFileName(), new DownloadProgressCallback() {
                         private boolean hasScheduledNextFrame = false;
                         private DownloadProgress latestDownloadProgress = null;
@@ -253,7 +266,7 @@ public class CodePushNativeModule extends ReactContextBaseJavaModule {
                         }
                     }, mCodePush.getPublicKey());
 
-                    JSONObject newPackage = mUpdateManager.getPackage(CodePushUtils.tryGetString(updatePackage, CodePushConstants.PACKAGE_HASH_KEY));
+                    JSONObject newPackage = mUpdateManager.getPackage(CodePushUtils.tryGetString(patchedPackage/*updatePackage*/, CodePushConstants.PACKAGE_HASH_KEY));
                     promise.resolve(CodePushUtils.convertJsonObjectToWritable(newPackage));
                 } catch (CodePushInvalidUpdateException e) {
                     CodePushUtils.log(e);

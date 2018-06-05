@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Threading;
@@ -43,19 +44,23 @@ namespace CodePush.ReactNative
             var request = new HttpRequestMessage(HttpMethod.Get, downloadUri);
             var client = new HttpClient();
             var cancellationTokenSource = new CancellationTokenSource();
+            Debug.WriteLine("<<<<requesting");
             using (HttpResponseMessage response = await client.SendRequestAsync(request).AsTask(cancellationTokenSource.Token, downloadProgress).ConfigureAwait(false))
             using (IInputStream inputStream = await response.Content.ReadAsInputStreamAsync().AsTask().ConfigureAwait(false))
             using (IRandomAccessStream downloadFileStream = await downloadFile.OpenAsync(FileAccessMode.ReadWrite).AsTask().ConfigureAwait(false))
             {
                 await RandomAccessStream.CopyAsync(inputStream, downloadFileStream).AsTask().ConfigureAwait(false);
+                Debug.WriteLine("<<<<copied");
             }
 
             try
             {
+                Debug.WriteLine("<<<<unzipping");
                 // Unzip the downloaded file and then delete the zip
                 StorageFolder unzippedFolder = await CreateUnzippedFolderAsync().ConfigureAwait(false);
                 ZipFile.ExtractToDirectory(downloadFile.Path, unzippedFolder.Path);
                 await downloadFile.DeleteAsync().AsTask().ConfigureAwait(false);
+                Debug.WriteLine("<<<<merging");
 
                 // Merge contents with current update based on the manifest
                 StorageFile diffManifestFile = (StorageFile)await unzippedFolder.TryGetItemAsync(CodePushConstants.DiffManifestFileName).AsTask().ConfigureAwait(false);
@@ -83,6 +88,7 @@ namespace CodePush.ReactNative
                 }
                 else
                 {
+                    Debug.WriteLine("got relativeBundlePath " + relativeBundlePath);
                     if (diffManifestFile != null)
                     {
                         // TODO verify hash for diff update
@@ -144,14 +150,18 @@ namespace CodePush.ReactNative
 
         internal async Task<JObject> GetPackageAsync(string packageHash)
         {
+            Debug.WriteLine("<<<< GetPackageAsync " + packageHash);
+
             StorageFolder packageFolder = await GetPackageFolderAsync(packageHash, false).ConfigureAwait(false);
             if (packageFolder == null)
             {
+                Debug.WriteLine("<<<< NULL packageFolder!!!!");
                 return null;
             }
 
             try
             {
+                Debug.WriteLine("<<<< GOT packageFolder!!!!");
                 StorageFile packageFile = await packageFolder.GetFileAsync(CodePushConstants.PackageFileName).AsTask().ConfigureAwait(false);
                 return await CodePushUtils.GetJObjectFromFileAsync(packageFile).ConfigureAwait(false);
             }

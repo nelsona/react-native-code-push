@@ -146,6 +146,8 @@ static NSString *bundleResourceSubdirectory = nil;
     bundleResourceSubdirectory = resourceSubdirectory;
     bundleResourceBundle = resourceBundle;
 
+    CPLog(@"<<<<bundleURLForResource %@ %@ %@", bundleResourceName, bundleResourceExtension, bundleResourceSubdirectory);
+
     [self ensureBinaryBundleExists];
 
     NSString *logMessageFormat = @"Loading JS bundle from %@";
@@ -155,12 +157,14 @@ static NSString *bundleResourceSubdirectory = nil;
     NSURL *binaryBundleURL = [self binaryBundleURL];
 
     if (error || !packageFile) {
+        CPLog(@"<<<<Error or No packageFile");
         CPLog(logMessageFormat, binaryBundleURL);
         isRunningBinaryVersion = YES;
         return binaryBundleURL;
     }
 
     NSString *binaryAppVersion = [[CodePushConfig current] appVersion];
+    binaryAppVersion = [self majorMinorPatch:binaryAppVersion];
     NSDictionary *currentPackageMetadata = [CodePushPackage getCurrentPackage:&error];
     if (error || !currentPackageMetadata) {
         CPLog(logMessageFormat, binaryBundleURL);
@@ -170,20 +174,30 @@ static NSString *bundleResourceSubdirectory = nil;
 
     NSString *packageDate = [currentPackageMetadata objectForKey:BinaryBundleDateKey];
     NSString *packageAppVersion = [currentPackageMetadata objectForKey:AppVersionKey];
+    packageAppVersion = [self majorMinorPatch:packageAppVersion];
 
-    if ([[CodePushUpdateUtils modifiedDateStringOfFileAtURL:binaryBundleURL] isEqualToString:packageDate] && ([CodePush isUsingTestConfiguration] ||[binaryAppVersion isEqualToString:packageAppVersion])) {
+    CPLog(@"<<<<packageDate %@", packageDate);
+
+    CPLog(@"<<<<packageAppVersion %@", packageAppVersion);
+
+    CPLog(@"<<<<binaryDate %@", [CodePushUpdateUtils modifiedDateStringOfFileAtURL:binaryBundleURL]);
+    CPLog(@"<<<<binaryAppVersion %@", binaryAppVersion);
+
+    if ([CodePush isUsingTestConfiguration] ||[binaryAppVersion isEqualToString:packageAppVersion]) {
         // Return package file because it is newer than the app store binary's JS bundle
         NSURL *packageUrl = [[NSURL alloc] initFileURLWithPath:packageFile];
         CPLog(logMessageFormat, packageUrl);
         isRunningBinaryVersion = NO;
         return packageUrl;
     } else {
+        CPLog(@"<<<<Newer binary");
         BOOL isRelease = NO;
 #ifndef DEBUG
         isRelease = YES;
 #endif
 
         if (isRelease || ![binaryAppVersion isEqualToString:packageAppVersion]) {
+            CPLog(@"<<<<clear OTA updates");
             [CodePush clearUpdates];
         }
 
@@ -331,6 +345,7 @@ static NSString *bundleResourceSubdirectory = nil;
  */
 + (void)ensureBinaryBundleExists
 {
+    CPLog(@"<<<<ensureBinaryBundleExists");
     if (![self binaryBundleURL]) {
         NSString *errorMessage;
 
@@ -607,6 +622,19 @@ static NSString *bundleResourceSubdirectory = nil;
 
 -(void)loadBundleOnTick:(NSTimer *)timer {
     [self loadBundle];
+}
+
+// Strip any suffices from a semantic version number
++ (NSString*) majorMinorPatch:(NSString*)version
+{
+    NSRange suffix = [version rangeOfString:@"-"];
+    if (suffix.location == NSNotFound) {
+        suffix = [version rangeOfString:@"+"];
+    }
+    if (suffix.location != NSNotFound) {
+        return [version substringToIndex:suffix.location];
+    }
+    return version;
 }
 
 #pragma mark - JavaScript-exported module methods (Public)

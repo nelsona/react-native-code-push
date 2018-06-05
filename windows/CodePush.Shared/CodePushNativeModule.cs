@@ -4,6 +4,7 @@ using ReactNative.Bridge;
 using ReactNative.Modules.Core;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Threading;
@@ -140,6 +141,7 @@ namespace CodePush.ReactNative
             {
                 var currentHash = (string)currentPackage[CodePushConstants.PackageHashKey];
                 currentUpdateIsPending = SettingsManager.IsPendingUpdate(currentHash);
+                Debug.WriteLine("<<<< currentUpdateIsPending " + currentUpdateIsPending + " hash " + currentHash);
             }
 
             if (updateState == UpdateState.Pending && !currentUpdateIsPending)
@@ -150,6 +152,7 @@ namespace CodePush.ReactNative
             }
             else if (updateState == UpdateState.Running && currentUpdateIsPending)
             {
+                Debug.WriteLine("<<<< want current but previous pending");
                 // The caller wants the running update, but the current
                 // one is pending, so we need to grab the previous.
                 promise.Resolve(await _codePush.UpdateManager.GetPreviousPackageAsync().ConfigureAwait(false));
@@ -162,6 +165,7 @@ namespace CodePush.ReactNative
                 // 3) Caller wants the latest update, regardless if it's pending or not
                 if (_codePush.IsRunningBinaryVersion)
                 {
+                    Debug.WriteLine("<<<< running binary");
                     // This only matters in Debug builds. Since we do not clear "outdated" updates,
                     // we need to indicate to the JS side that somehow we have a current update on
                     // disk that is not actually running.
@@ -170,6 +174,7 @@ namespace CodePush.ReactNative
 
                 // Enable differentiating pending vs. non-pending updates
                 currentPackage["isPending"] = currentUpdateIsPending;
+                Debug.WriteLine("<<<< set isPending " + currentUpdateIsPending);
                 promise.Resolve(currentPackage);
             }
         }
@@ -235,8 +240,10 @@ namespace CodePush.ReactNative
         [ReactMethod]
         public async void installUpdate(JObject updatePackage, InstallMode installMode, int minimumBackgroundDuration, IPromise promise)
         {
+            Debug.WriteLine("<<<< installUpdate");
             await _codePush.UpdateManager.InstallPackageAsync(updatePackage, SettingsManager.IsPendingUpdate(null)).ConfigureAwait(false);
             var pendingHash = (string)updatePackage[CodePushConstants.PackageHashKey];
+            Debug.WriteLine("<<<<savePendingUpdate hash " + pendingHash);
             SettingsManager.SavePendingUpdate(pendingHash, /* isLoading */false);
             if (installMode == InstallMode.OnNextResume)
             {
@@ -293,6 +300,7 @@ namespace CodePush.ReactNative
             // is current pending update, then reload the app.
             if (!onlyIfUpdateIsPending || SettingsManager.IsPendingUpdate(null))
             {
+                Debug.WriteLine("<<<<restartApp");
                 await LoadBundleAsync().ConfigureAwait(false);
             }
         }
